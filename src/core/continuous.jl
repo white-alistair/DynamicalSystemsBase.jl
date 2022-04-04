@@ -5,12 +5,13 @@ using SciMLBase: __init, ODEFunction, ODEProblem, AbstractODEIntegrator
 #                                    Defaults                                       #
 #####################################################################################
 using SimpleDiffEq: SimpleATsit5, SimpleTsit5
-export SimpleATsit5, SimpleTsit5
 const DEFAULT_SOLVER = SimpleATsit5()
 const DEFAULT_DIFFEQ_KWARGS = (abstol = 1e-6, reltol = 1e-6)
 const CDS_KWARGS = (alg = DEFAULT_SOLVER, DEFAULT_DIFFEQ_KWARGS...)
+export SimpleATsit5, SimpleTsit5, CDS_KWARGS
 
 _get_solver(a) = haskey(a, :alg) ? a[:alg] : DEFAULT_SOLVER
+_get_solver_and_rest(a) = (_get_solver(a), Base.structdiff(a, NamedTuple{(:alg,)}))
 
 #####################################################################################
 #                               Interface to DiffEq                                 #
@@ -156,13 +157,11 @@ function parallel_integrator(ds::CDS, states; diffeq = NamedTuple(), kwargs...)
     # if typeof(solver) ∈ STIFFSOLVERS
     #     error("Stiff solvers can't support a parallel integrator.")
     # end
-    if !(typeof(ds) <: CDS{true})
-        return __init(pprob, solver; DEFAULT_DIFFEQ_KWARGS..., save_everystep = false,
-                      internalnorm = _parallelnorm, diffeq...)
-    else
-        return __init(pprob, solver; DEFAULT_DIFFEQ_KWARGS..., save_everystep = false,
-                      internalnorm = _tannorm, diffeq...)
-    end
+
+    internalnorm = typeof(ds) <: CDS{true} ? _tannorm : _parallelnorm
+    return __init(
+        pprob, solver; DEFAULT_DIFFEQ_KWARGS..., save_everystep = false,
+        internalnorm, diffeq...)
 end
 
 @inline _parallelnorm(u::AbstractVector, t = 0) = @inbounds _standardnorm(u[1], t)
@@ -218,6 +217,15 @@ get_state(integ::AbstractODEIntegrator{Alg, IIP, S}, k::Int = 1) where {Alg, IIP
     integ.u[k]
 get_state(integ::AbstractODEIntegrator{Alg, IIP, S}, k::Int = 1) where {Alg, IIP, S<:AbstractMatrix} =
     view(integ.u, :, k)
+
+"""
+    get_states(pinteg)
+Return an iterator over all contained states in a [`parallel_integrator`](@ref).
+"""
+get_states(integ) = integ.u
+get_states(integ::AbstractODEIntegrator{Alg, IIP, S}) where {Alg, IIP, S<:AbstractMatrix} =
+    eachcol(integ.u)
+
 
 function set_state!(
     integ::AbstractODEIntegrator{Alg, IIP, S}, u::AbstractVector

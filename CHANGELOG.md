@@ -1,3 +1,7 @@
+# v2.7
+* New function `get_states` that returns an iterator over all states in a parallel integrator.
+* **[Somewhat breaking...?]** In the past, default keyword arguments for DiffEq were _merged_ with user-provided DiffEq keywords. E.g., if a user gave `diffeq = (alg = Tsit5(),)` as an argument, the default additional `abstol = 1e-6, reltol = 1e-6` would also be merged with the algorithm. Now, this no longer happens. If a user provides keyword arguments for DiffEq, only those are used.
+
 # v2.6
 * Added new `GeneralizedDynamicalSystem` abstract type that is an umbrella term.
 # v2.5
