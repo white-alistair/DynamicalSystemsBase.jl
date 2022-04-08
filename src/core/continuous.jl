@@ -145,7 +145,7 @@ end
 # Rosenbrock32, ROS3P, Rodas3, RosShamp4, Veldd4, Velds4, GRK4T,
 # GRK4A, Ros4LStab, Rodas4, Rodas42, Rodas4P)
 
-function parallel_integrator(ds::CDS, states; diffeq = NamedTuple(), kwargs...)
+function parallel_integrator(ds::CDS, states; diffeq = CDS_KWARGS, kwargs...)
     if !isempty(kwargs)
         @warn DIFFEQ_DEP_WARN
         diffeq = NamedTuple(kwargs)
@@ -153,15 +153,13 @@ function parallel_integrator(ds::CDS, states; diffeq = NamedTuple(), kwargs...)
 
     peom, st = create_parallel(ds, states)
     pprob = ODEProblem(peom, st, (ds.t0, typeof(ds.t0)(Inf)), ds.p)
-    solver = _get_solver(diffeq)
+    solver, rest = _get_solver_and_rest(diffeq)
     # if typeof(solver) ∈ STIFFSOLVERS
     #     error("Stiff solvers can't support a parallel integrator.")
     # end
 
     internalnorm = typeof(ds) <: CDS{true} ? _tannorm : _parallelnorm
-    return __init(
-        pprob, solver; DEFAULT_DIFFEQ_KWARGS..., save_everystep = false,
-        internalnorm, diffeq...)
+    return __init(pprob, solver; save_everystep = false, internalnorm, rest...)
 end
 
 @inline _parallelnorm(u::AbstractVector, t = 0) = @inbounds _standardnorm(u[1], t)
